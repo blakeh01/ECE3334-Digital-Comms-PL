@@ -1,8 +1,14 @@
 
 #include "FspTimer.h"
 const int N = 256;
-const int I = 1024;
-const int Q = 256;
+const int data = 15;
+const int table[4] = {128,256,512,1024};
+
+const int I = table[data%4];
+const int Q = table[data>>2];
+
+
+
 // minimum value for T: 12
 // with digitalWrite: 13 --> 300 Hz
 // reducing analogWriteResolution does not help
@@ -14,8 +20,7 @@ int v;
 static FspTimer fsp_timer;
 static void timer_callback([[maybe_unused]]timer_callback_args_t *arg)
 {
-  uint16_t v = sineTab[index];
-  Serial.println(v); 
+  uint16_t v = sineTab[index]; 
   index = (index+1)%N;
   analogWrite(DAC, v);
 }
@@ -24,7 +29,6 @@ static void timer_callback([[maybe_unused]]timer_callback_args_t *arg)
 
 void setup() {
   Serial.begin(9600);
-  
   Serial.println("started.");
   analogWriteResolution(12);  // set the analog output resolution to 12 bit (4096 levels)
   for (int i = 0; i < N; i++)
@@ -44,12 +48,16 @@ void setup() {
 
 void loop() 
 {
-  delay(10000);
+  delay(3000);
   fsp_timer.stop();
   analogWrite(DAC, 0);
   for (int i = 0; i < N; i++)
     sineTab[i] = I *sin(TWO_PI * i / N)+Q*cos(TWO_PI * i / N)+2046; 
-  delay(1000);
+  delay(500);
   fsp_timer.start();
+  Serial.print("I: ");
+  Serial.print(I);
+  Serial.print(" Q: ");
+  Serial.println(Q);
   while(1){}
 }
