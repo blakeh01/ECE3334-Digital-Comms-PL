@@ -14,8 +14,8 @@ I_amp = [1, 1.5];
 Q_amp = [1.5, 1];
 
 % create I and Q waveform using sin/cos as quadatrue pair.
-I_sig = I_amp(1) * sin(2*pi*freq*t);
-Q_sig = Q_amp(1) * cos(2*pi*freq*t);
+I_sig = I_amp * sin(2*pi*freq*t);
+Q_sig = Q_amp * cos(2*pi*freq*t);
 
 % change amplitude half way through to demo constellation map
 I_sig(round(numel(t) / 2):end) = I_amp(2) * sin(2*pi*freq*t(round(numel(t) / 2):end));
@@ -49,7 +49,7 @@ xlim([0 1/freq * 10])
 I_recovered = QAM_sig .* sin(2*pi*freq*t) .* 2; 
 Q_recovered = QAM_sig .* cos(2*pi*freq*t) .* 2;
 
-% verrryyy steep lowpass filter to recover just DC component
+% steep lowpass filter to recover just DC component
 I_filtered = lowpass(I_recovered, 0.001, Steepness=0.9);
 Q_filtered = lowpass(Q_recovered, 0.001, Steepness=0.9);
 
@@ -75,5 +75,3 @@ ax7 = nexttile;
 plot(ax7, t, Q_filtered);
 title(ax7, "Lowpass Q");
 xlim([0 1/freq*10])
-
-
