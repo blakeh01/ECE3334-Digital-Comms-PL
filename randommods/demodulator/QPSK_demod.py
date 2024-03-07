@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pyaudio
+import sounddevice as sd
 
 from scipy import signal
 from scipy.io import wavfile
@@ -14,7 +14,7 @@ L = int(Fs * Tsym)  # Up-sampling rate, L samples per symbol
 f_c = 5000
 attenuation_factor = 0.5296891938723061
 
-FORMAT = pyaudio.paInt16
+FORMAT = 'int16'
 CHANNELS = 1
 CHUNK = 1024  # number of samples analyzed, lower value = more computationally expensive.
 THRESHOLD = 32767 / 4  # 25% amplitude threshold.
@@ -22,47 +22,30 @@ RECORD_SECONDS = 5  # number of seconds to record, this will be dependent on # o
 WAVE_OUTPUT_FILENAME = "received_wave.wav"
 MIN_VOLUME = 32767 / 8
 
-# Initialize PyAudio
-p = pyaudio.PyAudio()
-
-# Open input stream
-stream = p.open(format=FORMAT,
-                channels=CHANNELS,
-                rate=Fs,
-                input=True,
-                frames_per_buffer=CHUNK)
+# Initialize variables
+frames_list = []
+recording = False
 
 
-def wait_for_signal():
-    frames = []
-    recording = False
+def callback(indata, frames, time, status):
+    global frames_list, recording
+    # Check if the signal crosses the threshold
+    if not recording and np.max(indata) > THRESHOLD:
+        print("Signal detected. Recording...")
+        recording = True
 
-    while True:
-        data = stream.read(CHUNK)
-        # Convert data to numpy array
-        audio_data = np.frombuffer(data, dtype=np.int16)
-        # Check if the signal crosses the threshold
-        if not recording and np.max(audio_data) > THRESHOLD:
-            print("Signal detected. Recording...")
-            recording = True
+    if recording:
+        frames_list.append(indata.copy())  # Append indata instead of data
 
-        if recording:
-            frames.append(audio_data)  # Append audio_data instead of data
-
-        if recording and np.max(audio_data) < MIN_VOLUME:
-            print("Volume below minimum detected. Stopping recording...")
-            break  # Break out of the loop
-
-    # Filter out empty arrays
-    frames = [frame for frame in frames if len(frame) > 0]
-    frames = np.concatenate(frames) if frames else np.array([])
-
-    wavfile.write('received_wave.wav', Fs, frames)
+    if recording and np.max(indata) < MIN_VOLUME:
+        print("Volume below minimum detected. Stopping recording...")
+        sd.stop()  # Stop recording
 
 
 while True:
     print("Waiting for signal...")
-    wait_for_signal()
+    with sd.InputStream(channels=CHANNELS, callback=callback, dtype=FORMAT, blocksize=CHUNK):
+        sd.sleep(RECORD_SECONDS * 1000)  # Sleep for the desired recording duration
 
     print("Processing signal...")
     Fs, samples = wavfile.read("received_wave.wav")
@@ -243,7 +226,8 @@ while True:
     out = np.zeros(N, dtype=np.complex64)
     freq_log = []
     for i in range(N):
-        out[i] = samples[i] * np.exp(-1j * phase)  # adjust the input sample by the inverse of the estimated phase offset
+        out[i] = samples[i] * np.exp(
+            -1j * phase)  # adjust the input sample by the inverse of the estimated phase offset
 
         error = phase_detector_4(out[i])  # This is the error formula for 4th order Costas Loop (e.g. for QPSK)
 
